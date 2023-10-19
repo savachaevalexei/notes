@@ -679,3 +679,30 @@ for [переменная] in [итерируемый объект]:
 {'1': 'value', '2': 'value', '3': 'value'}
 ```
 
+`.get(key, False)`  - получить значения по ключу `key` или вывести `False`, если такого ключа нет. 
+
+```
+{1: 'value', 2: 'value', 3: 'value'}
+>>> d.get(2)
+'value'
+
+>>> d.get(123, False)
+False
+```
+
+`.setdefault(key, default)` - возвращает значение по ключу `key`, а также присваевает знаечение `default` если такого ключа нет.
+
+```
+>>> d.setdefault(1, "hello")
+'value'
+
+>>> d.setdefault(12, "hello")
+'hello'
+>>> d
+{1: 'value', 2: 'value', 3: 'value', 12: 'hello'}
+```
+
+`.pop(key, False)` - удалить ключ из словаря. Если такого ключа нет, вернет `False`.
+
+`.popitem()` - удаляет случайный ключ.
+
