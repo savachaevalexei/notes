@@ -51,8 +51,6 @@
 [Метод new](#метод-new--↑) | 
 [classmethod и staticmethod](#classmethod-и-staticmethod--↑) |
 
-
-
 # Типы данных # [&#8593;](#навигация)
 
 `int` - целочисленный тип
