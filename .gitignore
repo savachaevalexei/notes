@@ -1,5 +1,7 @@
 .obsidian/
 
-main.py
-
 .vscode
+
+.django_lesson
+
+main.py
