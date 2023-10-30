@@ -7,7 +7,11 @@
 [Динамические URL](#динамические-url--↑) |
 [Обработка исключений](#обработка-исключений--↑) |
 [redirect](#redirect--↑) |
- [Шаблоны](#шаблоны--↑) |
+[Шаблоны](#шаблоны--↑) |
+[Передача данных в шаблоны](#передача-данных-в-шаблоны--↑) |
+[Стандартные фильтры шаблонов](#стандартные-фильтры-шаблонов--↑) |
+[Тэг for](#тэг-for--↑) |
+[Тэг if](#тэг-if--↑) |
 
 `django-admin` - список команд ядра.
 
@@ -184,4 +188,180 @@ return redirect('home')
 ```
 
 # Шаблоны # [&#8593;](#навигация)
+
+Для подключения шаблонов в файле `views.py` необходимо подключить библеотеку `from django.template.loader import render_to_string`. Изменим имеюющуюся функцию `index`:
+
+```
+def index(request):
+    t = render_to_string('app_name/index.html')
+    return HttpResponse(t)
+```
+
+В папке приложения `app_name` создадим папку `app_name` а в ней папку`templates` и добавим html файл `index.html`. 
+
+Можно использовать `render` для возвращения представляения, при этом функция `index` будет иметь вид:
+
+```
+def index(request):
+    return render(request, 'app_name/index.html')
+```
+
+Добавим новый маршрут в файле `app_name/urls.py`:
+
+```
+path('about/', views.about, name='about')
+```
+
+Добавим функцию для возвращения представления в файле `app_name/views.py`:
+
+```
+def about(request):
+    return render(request, 'app_name/about.html')
+
+```
+
+И добавим соответствующий шаблон для этого предствления в папку `app_name/templates/app_name/about.html`.
+
+В файле `project_name/settings.py` есть коллекция `TEMPLATES`, которая отвечает за настройку шаблонизатора django. Элемент `'APP_DIRS': True,` отвечает за то, чтобы по умолчанию шаблонизатор искал нужный шаблон в папке `templates`.
+
+# Передача данных в шаблоны # [&#8593;](#навигация)
+
+В шаблоны `about.html` и `index.html` внутри тегов `<title></title>` добавим конструкцию `{{ title }}`:
+
+```
+<title>{{ title }}</title>
+```
+
+Изменим функции представления:
+
+```
+def index(request):
+    data = {'title' : 'Главная страница'}
+    return render(request, 'app_name/index.html', data)
+
+def about(request):
+    data = {'title' : 'О сайте'}
+    return render(request, 'app_name/about.html', data)
+```
+
+Добавим список `dict`:
+
+```
+dict = ['menu', 'trash']
+
+def index(request):
+    data = {'title' : 'Главная страница', 'dict' : dict}
+    return render(request, 'app_name/index.html', data)
+```
+
+Внутри шаблона, чтобы обратится к какому то элементу списка, словаря, параметру класса и т.д используется `.` (точка):
+
+```
+<h1>{{ dict.1 }}</h1>
+```
+
+# Стандартные фильтры шаблонов # [&#8593;](#навигация)
+
+Добавим словарь в `app_name/views.py`:
+
+```
+data = {
+    'title' : 'главная страница',
+    'int' : 28,
+    'lst' : [ 1, 2, 'abc', True],
+    'set' : {1, 2, 3, 2, 5},
+    'dict' : {'key1' : 'value1', 'key2' : 'value2'},          
+}
+```
+
+И на странице `index.html` испытаем разные фильтры:
+
+`{{ int|add:"50" }}` - прибавить к элементу словаря с ключом `int` значение `50`;
+
+`{{ title|capfirst }}` - сделать первую букву заглавной;
+
+`{{ title|lower }}` - сделать все буквы маленькими;
+
+`{{ title|upper }}` - сделать все буквы большими;
+
+`{{ title|cut:"а"|cut:" " }}` - удалить из строки все символы `a` и пробелы;
+
+`{{ main_title|default:"Без заголовка" }}` - если переменной `main_title` нет, то будет применено значение по умолчанию;
+
+`{{ title|join:" | " }}` - разделить все элементы;
+
+`{{ "Home page"|slugify }}` - преобразовать строку в слаг.
+
+Больше о фильтрах:
+
+https://docs.djangoproject.com/en/4.2/ref/templates/builtins/
+
+# Тэг for # [&#8593;](#навигация)
+
+Реализуем цикл `for`, чтобы вывести данные из data_db. 
+
+В `app_name/views.py` внесем изменения:
+
+```
+data_db = [
+    {'id' : '1', 'title' : 'Шелдон', 'content' : 'Биография Шелдона', 'is_published' : True},
+    {'id' : '2', 'title' : 'Леонард', 'content' : 'Биография Леонарда', 'is_published' : False},  
+    {'id' : '3', 'title' : 'Раджеш', 'content' : 'Биография Раджеша', 'is_published' : False},  
+    {'id' : '4', 'title' : 'Говард', 'content' : 'Биография Говарда', 'is_published' : True},  
+    {'id' : '5', 'title' : 'Пенни', 'content' : 'Биография Пенни', 'is_published' : True},          
+]
+
+data = {
+    'title' : 'главная страница',
+    'main_title' : 'kek',
+    'int' : 28,
+    'lst' : [ 1, 2, 'abc', True],
+    'set' : {1, 2, 3, 2, 5},
+    'dict' : {'key1' : 'value1', 'key2' : 'value2'},
+    'posts' : data_db,          
+}
+
+def index(request):
+    return render(request, 'app_name/index.html', data)
+```
+
+Изменим шаблон `index.html`:
+
+```
+<body>
+
+    <ul>
+        {% for p in posts %}
+        <li>
+            <h2>{{ p.title }}</h2>
+            <p>{{ p.content }}</p>
+            <hr>
+        </li>
+
+        {% endfor %}
+    </ul>
+
+
+</body>
+```
+
+# Тэг if # [&#8593;](#навигация)
+
+Реализуем конструкцию `if`, таким образом, чтобы горизотнальная черта после последней записи не проставлялась и выведем только те записи, у которых `is_published = True`:
+
+```
+    <ul>
+        {% for p in posts %}
+        {% if p.is_published %}
+        <li>
+            <h2>{{ p.title }}</h2>
+            <p>{{ p.content }}</p>
+            {% if not forloop.last %}
+            <hr>
+            {% endif %}
+        </li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+```
 
