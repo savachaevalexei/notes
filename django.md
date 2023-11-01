@@ -10,8 +10,15 @@
 [Шаблоны](#шаблоны--↑) |
 [Передача данных в шаблоны](#передача-данных-в-шаблоны--↑) |
 [Стандартные фильтры шаблонов](#стандартные-фильтры-шаблонов--↑) |
-[Тэг for](#тэг-for--↑) |
-[Тэг if](#тэг-if--↑) |
+
+|
+[for](#тэг-for--↑) |
+[if](#тэг-if--↑) |
+[url](#тэг-url--↑) |
+[extends](#extends--↑) |
+[include](#include--↑) |
+[simple tags](#simple-tags--↑) |
+[inclusion tags](#inclusion-tags--↑) |
 
 `django-admin` - список команд ядра.
 
@@ -365,3 +372,283 @@ def index(request):
     </ul>
 ```
 
+# Тэг url # [&#8593;](#навигация)
+
+Добавим новый маршрут в `app_name/urls.py`:
+
+```
+path('post/<int:post_id/', views.show_post, name='post'),
+```
+
+Добавим функцию представления `app_name/views.py`:
+
+```
+def show_post(request, post_id):
+    return HttpResponseNotFound(f"Текст статьи с id = {post_id}")
+```
+
+Добавим ввывод ссылки в шаблон `index.html`:
+
+```
+    <ul>
+        {% for p in posts %}
+        {% if p.is_published %}
+        <li>
+            <h2>{{ p.title }}</h2>
+            <p>{{ p.content }}</p>
+            <p><a href="{% url 'post' p.id %}">Читать</a></p>
+            {% if not forloop.last %}
+            <hr>
+            {% endif %}
+        </li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+```
+
+Добавим меню для сайта. 
+
+Добавим новые маршуты. Файл `app_name/urls.py` будет:
+
+```
+from django.urls import path
+from . import views
+
+
+urlpatterns = [
+    path('', views.index, name = 'home'),
+    path('about/', views.about, name='about'),
+    path('addpage/', views.addpage, name ='add_page'),
+    path('contact/', views.contact, name='contact'),
+    path('login/', views.login, name='login'),
+    path('post/<int:post_id>/', views.show_post, name='post'),
+]
+```
+
+В файле `views.py` добавим список словарей для меню:
+
+```
+menu = [
+    {'title' : "О сайте", 'url_name' : 'about'}, 
+    {'title' : "Добавить статью", 'url_name' : 'add_page'},
+    {'title' : "Обратная связь", 'url_name' : 'contact'},
+    {'title' : "Войти", 'url_name' : 'login'},
+]
+```
+
+и функции представления:
+
+```
+def addpage(request):
+    return HttpResponseNotFound("add page")
+
+def contact(request):
+    return HttpResponseNotFound("contact")
+
+def login(request):
+    return HttpResponseNotFound("login")
+```
+
+В шабон `index.html` добавим вывод меню:
+
+```
+<ul>
+<li><a href="{% url 'home' %}">Главная</a></li>
+{% for m in menu %}
+{% if not forloop.last %}<li>{% else %}<li class="last">{% endif %}
+         <a href="{% url m.url_name %}">{{m.title}}</a>
+</li>
+{% endfor %}
+</ul>
+```
+
+# extends # [&#8593;](#навигация)
+
+В главном каталоге сайта (каталог, внутри которого есть и `project_name` и `app_name`) создадим каталог  `templates` и внутри него файл `base.html` - это будет базовый шаблон для всех страниц сайта.
+
+Добавим нестандартный маршрут к базовому шаблону в файле `settings.py`
+
+```
+ 'DIRS': [
+            BASE_DIR / 'templates',
+        ],
+```
+
+Шаблон `base.html` - содержит общую информацию для всех страниц сайта:
+
+```
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+
+<ul>
+    
+<li><a href="{% url 'home' %}">Главная</a></li>
+{% for m in menu %}
+{% if not forloop.last %}<li>{% else %}<li class="last">{% endif %}
+    <a href="{% url m.url_name %}">{{m.title}}</a>
+</li>
+{% endfor %}
+</ul>
+
+    {% block content %} {% endblock %}
+</body>
+</html>
+```
+
+Тогда `index.html` будет содержать:
+
+```
+{% extends 'base.html' %}
+
+{% block content %} 
+    <ul>
+        {% for p in posts %}
+        {% if p.is_published %}
+        <li>
+            <h2>{{ p.title }}</h2>
+            <p>{{ p.content }}</p>
+            <p><a href="{% url 'post' p.id %}">Читать</a></p>
+            {% if not forloop.last %}
+            <hr>
+            {% endif %}
+        </li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+
+    {% endblock %}
+```
+
+`about.html`  будет содержать:
+
+```
+{% extends 'base.html' %}
+
+{% block content %} 
+    <h1>{{ title }}</h1>
+    {% endblock %}
+```
+
+# include # [&#8593;](#навигация)
+
+Допустим, что мы хотим сделать отображение рубрик статей.
+
+В каталоге `app_name/templates/app_name/` создадим подкаталог `includes` и внутри него файл `nav.html` c содержимым:
+
+```
+<nav>
+    <a href="">Cat_1</a>
+    <a href="">Cat_2</a>
+    <a href="">Cat_3</a>
+</nav>
+```
+
+А внутри файла `index.html` внутри блока `{% block content %} ` добавим `{% include 'app_name/includes/nav.html' %}`.
+
+# Статические файлы # [&#8593;](#навигация)
+
+Создадим в каталоге `app_name` каталог `static` с подкаталогом `app_name` - это путь для хранения статических файлов.
+
+Теперь, в каталоге `app_name/static/app_name` создадим подкаталоги:
+
+`css` - каскадные таблицы стилей
+
+`js` - java script файлы
+
+`images` - изображения
+
+В базовом шаблоне необходимо подключить статические файлы. Для этого нужно добаваить:
+
+```
+{% load static %}
+```
+
+# simple tags # [&#8593;](#навигация)
+
+Создадим простой тэг.
+
+В каталоге `app_name` создадим подкаталог `templatetags` а в нем, файлы `__init__.py`. и `app_name_tags.py`. 
+
+`app_name_tags.py`
+```
+from django import template
+import app_name.views as views
+
+register = template.Library()
+
+@register.simple_tag()
+def get_categories():
+    return views.cats_db
+```
+
+И в файл `app_name/views.py` добавим новую коллекцию:
+
+```
+cats_db = [
+    {'id' : 1, 'name' : 'Retro gaming'},
+    {'id' : 2, 'name' : 'Modular synth'},
+    {'id' : 3, 'name' : 'Books'},
+]
+```
+
+В базовом шаблоне `base.html` необходимо вначале документа прописать:
+
+```
+{% load app_name_tags %}
+```
+
+И далее в нужном месте документа прописать:
+
+```
+{% get_categories as categories %}
+{% for cat in categories %}
+<li><a href="{% url 'category' cat.id %}">{{cat.name}}</a></li>
+{% endfor %}
+```
+
+Добавим новый маршрут в `urls.py`:
+
+```
+path('category/<int:cat_id>/', views.show_category, name='category'),
+```
+
+Опишем представление для нового маршрута в `views.py`:
+
+```
+def show_category(request, cat_id):
+    return index(request)
+
+```
+
+# inclusion tags # [&#8593;](#навигация)
+
+Включающий тег позволяет дополнительно формировать свой собственный шаблон на основе некоторых данных и возвращать фрагмент HTML-страницы. 
+
+В файле `app_name_tags.py` определиим новую функцию:
+
+```
+@register.inclusion_tag('app_name/list_categories.html')
+def show_categories():
+    cats = views.cats_db
+    return {'cats' : cats}
+```
+
+В папке `app_name/templates/app_name` создадим новый файл `list_categories.html`:
+
+```
+{% for cat in cats %}
+<li><a href="{% url 'category' cat.id %}">{{cat.name}}</a></li>
+{% endfor %}
+```
+
+А в `base.html` в нужном месте прописать:
+
+```
+{% show_categories %}
+```
