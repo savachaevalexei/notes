@@ -20,6 +20,19 @@
 [simple tags](#simple-tags--↑) |
 [inclusion tags](#inclusion-tags--↑) |
 
+|
+[ORM](#orm--↑) |
+[Миграции](#миграции--↑) |
+[CRUD](#crud--↑) |
+[create](#create--↑) |
+[read](#read--↑) |
+[.filter](#filter--↑) |
+[Сортировка](#сортировка--↑) |
+[update](#update--↑) |
+[delete](#delete--↑) |
+[slug](#slug--↑) |
+[Пользовательский менеджер модели](#пользовательский-менеджер-модели--↑) |
+
 `django-admin` - список команд ядра.
 
 `django-admin startproject project_name` - создать новый проект c названием `project_name`.
@@ -651,4 +664,446 @@ def show_categories():
 
 ```
 {% show_categories %}
+```
+
+# ORM # [&#8593;](#навигация)
+
+При работе с Django разработчику не нужно беспокоиться о подключении к БД и ее закрытию, когда пользователь покидает сайт. Необходимо лишь через модель взаимодействия выполнять команды API интерфейса, записывать, считывать и обновлять данные.
+
+По умолчанию Django сконфигурирован для работы с БД `SQLite`. Текущую настройку БД можно посмотреть в файле `settings.py` пакета конфигурации: 
+
+```
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+```
+
+Чтобы работать с таблицами, нужно обьявить класс с нужными полями. Это делается в файле `app_name/models.py`:
+
+```
+class artile(models.Model):
+    title = models.CharField(max_length=255)
+    content = models.TextField(blank=True)
+    time_create = models.DateTimeField(auto_now_add=True)
+    time_update = models.DateTimeField(auto_now=True)
+    is_published = models.BooleanField(default=True)
+```
+
+# Миграции # [&#8593;](#навигация)
+
+Чтобы таблица появилась в БД объявить ее модель - не достаточно. Для этого необходимо создать файл миграции. 
+
+При обновлении модели, файл миграции необходимо создать заново. Обновленный файл миграции будет содержать лишь новые изменения. Это можно воспринимать как контроль версий.
+
+Чтобы создать миграцию необходимо выполнить команду: 
+
+`python3 manage.py makemigrations`
+
+После выполнения команды в каталоге `app_name/migrations` появится новый файл с именем `0001_initial.py` - это файл миграции.
+
+Чтобы посмотреть какой sql запрос будет выполнен при использовании файла миграции, необходимо ввести команду:
+
+`python3 manage.py sqlmigrate app_name 0001`
+
+Чтобы выполнить миграцию, нужно выполнить команду:
+
+`python3 manage.py migrate`
+
+Теперь в БД создалось 11 таблиц. Среди которых будет  `app_name_artile`. 
+
+# CRUD # [&#8593;](#навигация)
+
+Класс модели - определяет структуры таблицы БД. Каждый экземпляр класса модели - отдельная запись.
+
+Чтобы просмотреть какие sql запросы были выполнены:
+
+```
+from django.db import connection
+connection.queries
+```
+
+Чтобы просмотреть последний выполненый запрос: `connection.queries[-1]`
+
+Перейдем в консоль django: `python manage.py shell`.
+
+Для работы с объектами класса в консоли, необходимо подключить соответствующий класс:
+
+`from app_name.models import artile`
+
+Для более удобной работы с консолью можно установить дополнительный модуль в виртуальное окружение и расширения для джанго:
+
+```
+pip install ipython
+pip install django-extensions
+```
+
+Далее в файле `settings.py` в коллекцию `installed_apps` добавить запись `django-extensions`.
+
+И выполнить команду:
+
+```
+python3 manage.py shell_plus --print-sql
+```
+
+Оболочка `shell_plus` автоматически импотирует все классы моделей. Флаг `--print-sql` позволяет автоматически выводить выполненые sql запросы.
+
+# create # [&#8593;](#навигация)
+
+
+`artile(title='Sheldon Cooper', content='bio')`
+
+Cоздание экземпляра класса не означает фактическое занесение его в таблицу. 
+
+Запишем переменную, которая будет ссылться на созданный экземпляр класса:
+
+`a1= _`
+
+Чтобы произвести запись в таблицу, нужно выполнить команду:
+
+`a1.save()`
+
+Теперь запись была записана в БД. Можно обращаться через консоль джанго к объектам класса, например: `a1.title`.
+
+Добавим записей в таблицу:
+
+```
+a2 = artile(title='Melisa Cooper', content='Melisa bio')
+a2.save()
+```
+
+Атрибут класса `objects` модели ссылается на менеджер записей, соответственно мы можем произвести запись в в таблицу следующей командой:
+
+```
+artile.objects.create (title = 'Govard Volovez', content='abracadabra')
+```
+
+# read # [&#8593;](#навигация)
+
+`artile.objects.all()` - позволяет получить все записи в формате:
+
+```
+<QuerySet [<artile: artile object (1)>, <artile: artile object (2)>, <artile: artile object (3)>]>
+```
+
+Чтобы получить в результате выполнения этой команды, например, значение поля `title`, а не идентификатор записи, необходимо в `models.py` нужного приложения добавить метод:
+
+```
+def __str__(self):
+    return self.title
+```
+
+и перезагрузить оболочку shell-plus. Теперь при выполнении команды для вывода всех записей результат будет следующим:
+
+```
+<QuerySet [<artile: Sheldon Cooper>, <artile: Melisa Cooper>, <artile: Govard Volovez>]>
+```
+
+Чтобы вывести, например первые 3 записи, воспользуемся срезом:
+
+```
+r = artile.objects.all()[:3]
+```
+
+Так же для вывода записей можно использовать цикл `for`:
+
+```
+rs = artile.objects.all()
+
+for r in rs:
+    print(r)
+```
+
+# .filter # [&#8593;](#навигация)
+
+Так же возможно использование фильтров для вывода записей:
+
+```
+artile.objects.filter(title = 'Sheldon Cooper')
+```
+
+Для использования в фильтрах операторов сравнения в джанго используется следующий синтаксис (lookups):
+
+`__gte` – сравнение больше или равно (>=);
+
+`__gt` – сравнение больше (>);
+
+`__lte` – сравнение меньше или равно (<=);
+
+`__lt` – сравнение меньше (<). 
+
+`__contains` - проверка на содержание с учетом регистра.
+
+`__icontains` - проверка на содержание без учета регистра.
+
+https://docs.djangoproject.com/en/4.2/ref/models/querysets/#field-lookups
+
+Например, чтобы вывести все записи, у которых id > 2, нужно:
+
+```
+artile.objects.filter(pk__gt = 2)
+```
+
+Чтобы вывести записи, поле `title` которых содержит определенный фрагмент без учета регистра, необходимо:
+
+```
+artile.objects.filter(title__icontains = "pEr")
+```
+
+Чтобы вывести список записей с определенным id:
+
+```
+artile.objects.filter(pk__in = [1,3])
+```
+
+Также используя фильтр, можно передавать несколько параметров:
+
+```
+artile.objects.filter(pk__in = [1, 3], title__contains = 'vez')
+```
+
+На уровне sql такой запрос будет следующим:
+
+```
+Out[19]: SELECT "app_name_artile"."id",
+       "app_name_artile"."title",
+       "app_name_artile"."content",
+       "app_name_artile"."time_create",
+       "app_name_artile"."time_update",
+       "app_name_artile"."is_published"
+  FROM "app_name_artile"
+ WHERE ("app_name_artile"."id" IN (1, 3) AND "app_name_artile"."title" LIKE '%vez%' ESCAPE '\')
+ LIMIT 21
+```
+
+Чтобы исключить записи из вывода по каким-то параметрам необходимо использовать `exclude`. Например, исключим из вывода запись с id = 2:
+
+```
+artile.objects.exclude(pk = 2)
+```
+
+Метод `.filter` возвращает список в качестве резултата своей работы. Существует метод `.get` который возращает ТОЛЬКО ОДНУ запись.
+
+
+# Сортировка # [&#8593;](#навигация)
+
+Чтобы выполнить сортировку при выводе записей, необходимо использовать метод `.order_by`. Например,:
+
+```
+artile.objects.filter(pk__gte = 2 ).order_by("title")
+```
+
+Также есть возможность реализации сортировки по умолчанию, для этого в `models.py` необходимо описать класс `Meta` с необходимыми атрибутами. Например, сделаем по умолчанию сортировку в обратном порядке по значению поля `time_create`.
+
+```
+class Meta():
+        ordering = ['-time_create']
+        indexes = [
+            models.Index(fields=['-time_create']),
+        ]
+```
+
+https://docs.djangoproject.com/en/4.2/ref/models/options/
+
+# update # [&#8593;](#навигация)
+
+Чтобы внести изменения в какую-любо запись, необходимо сперва записать нужную запись с помощью метода `.get` в переменную и обращаясь к нужному полю вносить изменения следующим образом:
+
+```
+u = artile.objects.get(pk=2)
+u.title = "Missi" 
+u.save()
+```
+
+Чтобы сделать изменения всех строк конкретного поля нужно:
+
+```
+artile.objects.update(is_published=0)
+```
+
+Чтобы сделать изменения нескольких строк конкретного поля, нужно использовать метод `filter`:
+
+```
+artile.objects.filter(pk__lte=2).update(is_published=1)
+```
+
+# delete # [&#8593;](#навигация)
+
+Например, удалим все записи с индексом больше 1.
+
+```
+artile.objects.filter(pk__gt = 1).delete()
+```
+
+# slug # [&#8593;](#навигация)
+
+Внесем изменения в `views.py` в метод `show_post`:
+
+```
+from django.shortcuts import render, redirect, get_object_or_404
+from .models import artile
+
+def show_post(request, post_id):
+    post = get_object_or_404(artile, pk=post_id)
+
+    data = {
+        'title': post.title,
+        'menu': menu,
+        'post': post,
+        'cat_selected': 1,
+    }
+
+    return render(request, 'app_name/post.html', context=data)
+```
+
+`get_object_or_404` - возвращает запись из модели или генирирует исключение.
+
+Далее сделаем шаблон `post.html` в котором будет отображаться запись из бд:
+
+```
+{% extends 'base.html' %}
+ 
+{% block content %}
+<h1>{{post.title}}</h1>
+ 
+<!-- ЕСЛИ ЕСТЬ ИЗОБРАЖЕНИЕ - ВСТАВИТЬ -->
+{% if post.photo %}
+<p ><img class="img-article-left" src="{{post.photo.url}}"></p>
+{% endif %}
+ 
+<!-- linebreaks используется для переноса строк при отображении в браузере -->
+{{post.content|linebreaks}}
+{% endblock %}
+```
+
+Теперь перейдя по ссылке `http://127.0.0.1:8000/post/1/` увидем вывод первой записи из таблицы.
+
+Сделаем отображение записей по слагу. Для этого в модели `artile` добавим поле `slug`.
+
+```
+slug = models.SlugField(max_length=255, db_index=True, blank=True, default='')
+```
+
+После внесения изменений в модель, нужно выполнить и применить миграцию:
+
+```
+python3 manage.py makemigrations
+python2 manage.py migrate 
+```
+
+Поле `slug` добавлено. Теперь перейдем в оболочку `shell-plus` и внесем изменение в это поле:
+
+```
+for w in artile.objects.all():
+     w.slug = 'slug-'+str(w.pk)
+     w.save()
+```
+
+Изменим снова модель:
+
+```
+slug = models.SlugField(max_length=255, db_index=True, unique=True)
+```
+
+Выполним и применим миграцию. 
+
+Теперь нужно сделать отображение статей по слагу, для этого в файле `urls.py` изменим:
+
+```
+path('post/<slug:post_slug>/', views.show_post, name='post'),
+```
+
+И снова изменим функцию представления:
+
+```
+def show_post(request, post_slug):
+    post = get_object_or_404(artile, slug=post_slug)
+
+    data = {
+        'title': post.title,
+        'menu': menu,
+        'post': post,
+        'cat_selected': 1,
+    }
+
+    return render(request, 'app_name/post.html', context=data)
+```
+
+Теперь, перейдя по адресу `http://127.0.0.1:8000/post/slug-1/` попадем на отображение первой записи в таблице `artile`.
+
+Пропишем в `models.py` метод, который будет формирвоать слаги по полю `title`:
+
+```
+from django.urls import reverse
+
+def get_absolute_url(self):
+    return reverse('post', kwargs={'post_slug': self.slug})
+```
+
+Теперь изменим вывод ссылок в шаблоне `index.html`:
+
+```
+<a href="{{ p.get_absolute_url }}">Читать</a>
+```
+
+Также изменим функцию представления `index` в `views.py`:
+
+```
+def index(request):
+    posts = artile.objects.filter(is_published = 1)
+    return render(request, 'app_name/index.html', { 'menu' : menu, 'posts' : posts,})
+```
+
+# Пользовательский менеджер модели # [&#8593;](#навигация)
+
+В `models.py` опишем новый класс для менеджера:
+
+```
+class PublishedManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_published = 1)
+```
+
+ и объвим этот менеджер внутри класса модели `artile`:
+
+ ```
+ published = PublishedManager()
+ ```
+
+Внесем изменения в функцию представляения `index`: 
+
+```
+def index(request):
+    posts = artile.published.all()
+    return render(request, 'app_name/index.html', { 'menu' : menu, 'posts' : posts,})
+```
+
+Теперь используя менеджер `published` на главную страницу выводятся только те записи, которые имеет значение `is_published = 1`.
+
+Определим осмысленные именна вместо 1 и 0. В `models.py` внутри модели `artile` опишем новым класс `status`:
+
+```
+class artile(models.Model):
+    class Status(models.IntegerChoices):
+        DRAFT = 0, 'Черновик'
+        PUBLISHED = 1, 'Опубликовано'
+
+    title = models.CharField(max_length=255)
+    slug = models.SlugField(max_length=255, db_index=True, unique=True)
+    content = models.TextField(blank=True)
+    time_create = models.DateTimeField(auto_now_add=True)
+    time_update = models.DateTimeField(auto_now=True)
+    is_published = models.BooleanField(choices=Status.choices, default=Status.DRAFT)
+
+    objects = models.Manager()
+    published = PublishedManager()
+```
+
+Теперь запросы к модели можно выполнять следующим образом. Например, обновим поле `is_published` для всех записей:
+
+```
+w = artile.objects.all()
+w.update(is_published=artile.Status.DRAFT)
 ```
