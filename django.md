@@ -35,7 +35,11 @@
 
 |
 [Типы связей между моделями](#типы-связей-между-моделями--↑) |
-[ManyToManyField](#manytomanyfield--↑) |
+[Many-To-One](#many-to-one--↑) |
+[ORM команды для Many-To-One](#orm-команды-для-many-to-one--↑) |
+[Отображение постов по рубрикам](#отображение-постов-по-рубрикам--↑) |
+[Many-To-Many](#many-to-many--↑) |
+[Добавление тегов на сайт](#добавление-тегов-на-сайт--↑) |
 
 
 `django-admin` - список команд ядра.
@@ -1121,7 +1125,7 @@ w.update(is_published=artile.Status.DRAFT)
 
 `OneToOneField` – для связей One to One (один к одному). 
 
-# ManyToManyField # [&#8593;](#навигация)
+# Many-To-One # [&#8593;](#навигация)
 
 Класс `ForeignKey` принимает два обязательных аргумента:
 
@@ -1140,5 +1144,213 @@ models.SET_DEFAULT – то же самое, что и SET_NULL, только в
 
 `models.SET() `– то же самое, только устанавливает пользовательское значение;
 
-`models.DO_NOTHING` – удаление записи в первичной модели (Category) не вызывает никаких действий у вторичны.
+`models.DO_NOTHING` – удаление записи в первичной модели (Category) не вызывает никаких действий у вторичных.
 
+Реализуем связь многие к одному.
+
+Определим модель для категорий статей (первичная модель):
+
+ ```
+ class Category(models.Model):
+    name = models.CharField(max_length=100, db_index=True)
+    slug = models.CharField(max_length=255, unique=True, db_index=True)
+
+    def __str__(self):
+        return self.name
+ ```
+
+ Во вторичную модель (`artile`) добавим поле `cat`, которое указывает на то, что оно являяется внешним ключом и ссылается на конкретную запись из модели `Category`:
+
+ ```
+ cat = models.ForeignKey('Category', on_delete=models.PROTECT, null=true)
+ ```
+
+ Выполним миграцию:
+
+ ```
+ python3 manage.py makemigrations
+ python3 manage.py migrate
+ ```
+
+ Теперь в таблице `artile` добавилось поле `cat_id`, которое является внешним ключом.
+
+ Добавим категории, используя `shell_plus`:
+
+ ```
+ Category.objects.create(name='Retro-gaming', slug='retro-gaming')
+ Category.objects.create(name='books', slug='books')
+ Category.objects.create(name='Modular synth', slug='modular-synth')
+ ```
+
+ Присвоим для примера всем записям из таблицы `artile` значение для поля `cat_id` равное 1:
+
+```
+w_list = artile.objects.all()
+w_list.update(cat_id=1)
+```
+
+Уберем значение `null=true` для поля `cat` в модели `artile`.
+
+Выполним снова миграцию (выбрать `Ignore for now`) и применем ее.
+
+# ORM команды для Many-To-One # [&#8593;](#навигация)
+
+Перейдем в шел плюс и выполним команду, которая позволяет вывести все статьи с определнной категорией, например 1:
+
+```
+c = Category.objects.get(pk=1)
+c.artile_set.all()
+```
+
+Также, для большего удобства, мы можем изменить имя атрибута обратного свертывания (`artile_set`) на что-то более осмысленное, для этого в классе `ForeignKey` вторичной модели, необходимо прописать `related_name='posts`:
+
+```
+cat = models.ForeignKey('Category',on_delete=models.PROTECT, related_name='posts')
+```
+
+Теперь, вывести посты, связанные с какой-либо категорией можно следующим образом:
+
+```
+c = Category.objects.get(pk=1)
+c.posts.all()
+```
+
+С атритом обратного свертывания также можно использовать и фильтры, например, выведем только те статьи, у которых значение поля `is_published = 1`:
+
+```
+c.posts.filter(is_published=1)
+```
+
+Также, обращаясь к первичной модели, мы можем обратится к полю `slug` вторичной модели, например: 
+
+```
+artile.objects.filter(cat__slug='retro-gaming')
+```
+
+Т.е. обращение к нужному полю осуществляется аналогично использовонию люкапов (`lookups`), через `__`.
+
+# Отображение постов по рубрикам # [&#8593;](#навигация)
+
+В `urls.py` внесем изменения:
+
+```
+path('category/<slug:cat_slug>/', views.show_category, name='category'),
+```
+
+В `views.py` изменим функцию `show_category`:
+
+```
+def show_category(request, cat_slug):
+    category = get_object_or_404(Category, slug=cat_slug)
+    posts = artile.published.filter(cat_id=category.pk)
+
+    data = {
+        'title': f'Рубрика: {category.name}',
+        'menu': menu,
+        'posts': posts,
+        'cat_selected': category.pk,
+    }
+ 
+    return render(request, 'app_name/index.html', context=data)
+```
+
+Далее, внесем изменения в файл `templatetags/app_name_tags.py`:
+
+```
+@register.inclusion_tag('app_name/list_categories.html')
+def show_categories(cat_selected_id=0):
+    cats = Category.objects.all()
+    return {"cats": cats, "cat_selected": cat_selected_id}
+```
+
+В шаблоне `list_categories.html`:
+
+```
+{% for cat in cats %}
+<li><a href="{{ cat.get_absolute_url }}">{{cat.name}}</a></li>
+{% endfor %}
+```
+
+`models.py`
+
+```
+class Category(models.Model):
+    name = models.CharField(max_length=100, db_index=True)
+    slug = models.CharField(max_length=255, unique=True, db_index=True)
+
+    def __str__(self):
+        return self.name
+    
+    def get_absolute_url(self):
+        return reverse('category', kwargs={'cat_slug':self.slug})
+```
+
+Теперь статьи выводятся по категориям.
+
+# Many-To-Many # [&#8593;](#навигация)
+
+Примером связи многие ко многим является тегирование, это значит, что с одним постом можно связать сразу несколько разных тегов и, наоброт, с отдельными тегами – несколько разных постов.
+
+Добавим модель для тегов:
+
+`models.py`
+
+```
+class TagPost(models.Model):
+    tag = models.CharField(max_length=100, db_index=True)
+    slug = models.SlugField(max_length=255, unique=True, db_index=True)
+
+    def __str__(self):
+        return self.tag
+```
+
+И в модель `artile` пропишем поле `tags` для реализации связи многие ко многим:
+
+```
+tags = models.ManyToManyField('TagPost', blank=True, related_name='tags')
+```
+
+Выполним и применим миграцию.
+
+Тэги храняться в таблице `app_name_tagpost`.
+
+Перейдем в оболочку джанго и наполним таблицу данными:
+
+```
+TagPost.objects.create(tag='geek', slug='geek')
+TagPost.objects.create(tag='nerd', slug='nerd')
+и т.д
+```
+
+Связь многие ко многим будет определяться содержимым вспомогательной таблицы `app_name_artile_tags`.
+
+Добавим связи между тегами и постами:
+
+```
+a = artile.objects.get(pk=1) #прочитаем первую запись из таблицы с постами -sheldon cooper
+
+tag_br = TagPost.objects.all()[1] #присвоим переменной значениме тега =  nerd
+
+tag_o, tag_v = TagPost.objects.filter(id__in=[3, 5]) #physic, flash
+
+a.tags.set([tag_br, tag_o, tag_v]) #присвоить список тегов
+```
+
+Теперь, в таблице `app_name_artile_tags` появились связи. 
+
+ `a.tags.add(tag_br)` - добавить один тег `tag_br`.
+
+ `a.tags.remove(tag_o)` - удалить тег `tag_o`.
+
+ `a.tags.all()` - получить все теги для текущей записи.
+
+ `tag_br.tags.all()` - получить по тегу все посты, которые с ним связаны.
+
+Теперь, когда реализованы категории статей и теги, добавление новых статей будет выполняться:
+
+```
+w = artile.objects.create(title='Пенни Ховстедер', slug='penni-hofsteder', cat_id=2)
+w.tags.set([tag_br, tag_v])
+```
+
+# Добавление тегов на сайт # [&#8593;](#навигация)
